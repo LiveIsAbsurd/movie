@@ -123,11 +123,15 @@ class App extends React.Component {
       />
     ) : null;
     let notFound =
-      this.state.movies.length === 0 && search ? (
+      this.state.movies.length === 0 && search && !error ? (
         <Alert className="error" message="Ошибка" description="Фильм не найден" type="error" />
       ) : null;
     return (
       <div className="main">
+        <div className="head-buttons">
+          <button className="select">Search</button>
+          <button>Rated</button>
+        </div>
         <SearchPlace changeSearch={(text) => this.changeSearch(text)} />
         {movieList}
         {loader}

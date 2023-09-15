@@ -1,5 +1,5 @@
 import React from 'react';
-import { Col, Spin, Alert, Pagination } from 'antd';
+import { Col, Spin, Alert, Pagination, Rate } from 'antd';
 import { format, isValid } from 'date-fns';
 
 import ListRender from '../list-render';
@@ -17,6 +17,12 @@ class App extends React.Component {
     page: 1,
     totalPages: 0,
   };
+
+  componentDidMount() {
+    this.movie.createSession().then((data) => {
+      this.setState({ session: data });
+    });
+  }
 
   db = (text) => {
     this.movie
@@ -80,6 +86,17 @@ class App extends React.Component {
   render() {
     let { loading, error, search } = this.state;
     const elements = this.state.movies.map((el, i) => {
+      let raiting = el.vote_average.toFixed(1);
+      let raitingColor;
+      if (raiting <= 3) {
+        raitingColor = '#E90000';
+      } else if (raiting <= 5) {
+        raitingColor = '#E97E00';
+      } else if (raiting <= 7) {
+        raitingColor = '#E9D100';
+      } else {
+        raitingColor = '#66E900';
+      }
       let release = new Date(el.release_date);
       let releaseDate;
       if (isValid(release)) {
@@ -91,13 +108,25 @@ class App extends React.Component {
         <Col className="col" key={i}>
           <img className="img" src={el.poster_path ? `https://image.tmdb.org/t/p/original${el.poster_path}` : ''} />
           <div className="info">
-            <p className="header">{this.getText(el.original_title, 10)}</p>
-            <p className="date">{releaseDate}</p>
             <div>
-              <span className="genre">Action</span>
-              <span className="genre">Drama</span>
+              <div style={{ borderColor: raitingColor }} className="realRate">
+                {raiting}
+              </div>
+              <p className="header">{this.getText(el.original_title, 10)}</p>
+              <p className="date">{releaseDate}</p>
+              <div>
+                <span className="genre">Action</span>
+                <span className="genre">Drama</span>
+              </div>
+              <p className="description">{this.getText(el.overview, 200)}</p>
             </div>
-            <p className="description">{this.getText(el.overview, 200)}</p>
+            <Rate
+              className="rate"
+              count={10}
+              onChange={(count) => {
+                this.movie.addRate(count, this.state.session);
+              }}
+            />
           </div>
         </Col>
       );

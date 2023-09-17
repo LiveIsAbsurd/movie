@@ -4,3 +4,9 @@
     margin-top: 20px;
     width: 1000px;
 }
+
+@media (max-width: 768px) {
+    .search {
+        width: 100%;
+    }
+}

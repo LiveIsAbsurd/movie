@@ -11,11 +11,10 @@ class getMovie {
     const options = { ...this.options };
 
     let response = await fetch(
-      `https://api.themoviedb.org/3/search/movie?query=${text}&include_adult=false&language=en-US&page=${page}`,
+      `https://api.themoviedb.org/3/search/movie?query=${text}&include_adult=false&language=ru-RU&page=${page}&api_key=6669fe42c26c35d537a5e64344108819`,
       options
     );
     let movies = await response.json();
-    console.log(movies);
     return movies;
   }
 
@@ -24,21 +23,41 @@ class getMovie {
 
     let response = await fetch('https://api.themoviedb.org/3/authentication/guest_session/new', options);
     let data = await response.json();
-    console.log(data.guest_session_id);
     return data.guest_session_id;
   }
 
-  async addRate(rate, session) {
+  addRate(rate, session, id) {
     const options = {
       ...this.options,
       method: 'POST',
       headers: { ...this.options.headers, 'Content-Type': 'application/json;charset=utf-8' },
       body: `{"value": ${rate}}`,
     };
-    console.log(options);
+    delete options.headers.Authorization;
 
-    let request = await fetch(`https://api.themoviedb.org/3/movie/836466/rating?guest_session_id=${session}`, options);
-    console.log(request.json());
+    fetch(
+      `https://api.themoviedb.org/3/movie/${id}/rating?guest_session_id=${session}&api_key=6669fe42c26c35d537a5e64344108819`,
+      options
+    );
+  }
+
+  async getRated(session, page) {
+    const options = { ...this.options };
+    delete options.headers.Authorization;
+    let request = await fetch(
+      `https://api.themoviedb.org/3/guest_session/${session}/rated/movies?language=ru-RU&page=${page}&sort_by=created_at.asc&api_key=6669fe42c26c35d537a5e64344108819`,
+      options
+    );
+    return request.json();
+  }
+
+  async getGenres() {
+    const options = { ...this.options };
+
+    let request = await fetch('https://api.themoviedb.org/3/genre/movie/list?language=en', options);
+    let data = await request.json();
+
+    return data.genres;
   }
 }
 

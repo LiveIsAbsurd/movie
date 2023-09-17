@@ -1,28 +1,75 @@
 import React from 'react';
-import { Col, Spin, Alert, Pagination, Rate } from 'antd';
-import { format, isValid } from 'date-fns';
+import { Spin, Alert, Pagination } from 'antd';
 
 import ListRender from '../list-render';
 import SearchPlace from '../search-place';
 import getMovie from '../../functions/get-movie';
 import './app.css';
+import { Provider } from '../genres-context/genres-context';
 
 class App extends React.Component {
   movie = new getMovie();
   state = {
+    select: 'search',
     movies: [],
     loading: false,
-    error: false,
     search: false,
+    error: false,
     page: 1,
     totalPages: 0,
+    ratedList: [],
+    genres: [],
   };
 
   componentDidMount() {
-    this.movie.createSession().then((data) => {
-      this.setState({ session: data });
-    });
+    this.movie
+      .createSession()
+      .then((data) => {
+        this.setState({ session: data });
+      })
+      .catch(() => {
+        this.setState({
+          loading: false,
+          error: true,
+        });
+      });
+
+    this.movie
+      .getGenres()
+      .then((data) => {
+        this.setState({
+          genres: data,
+        });
+      })
+      .catch(() => {
+        this.setState({
+          loading: false,
+          error: true,
+        });
+      });
   }
+
+  getRated = async (session, page) => {
+    this.setState({
+      loading: true,
+    });
+    try {
+      let list = await this.movie.getRated(session, page);
+      this.setState({
+        ratedList: list.results,
+        select: 'rated',
+        loading: false,
+        totalPages: list.total_pages,
+        page: 1,
+        not_Found: list.results.length === 0 ? true : false,
+      });
+    } catch (e) {
+      this.setState({
+        loading: false,
+        error: true,
+      });
+    }
+  };
 
   db = (text) => {
     this.movie
@@ -32,6 +79,7 @@ class App extends React.Component {
           movies: data.results,
           loading: false,
           totalPages: data.total_pages,
+          not_Found: data.results.length === 0 ? true : false,
         });
       })
       .catch(() => {
@@ -40,19 +88,6 @@ class App extends React.Component {
           error: true,
         });
       });
-  };
-
-  getText = (text, maxLength) => {
-    if (!text) return 'Описание не найдено';
-    if (text.length <= maxLength) {
-      return text;
-    }
-    const truncated = text.slice(0, maxLength);
-    const lastSpaceIndex = truncated.lastIndexOf(' ');
-    if (lastSpaceIndex === -1) {
-      return truncated + '...';
-    }
-    return truncated.slice(0, lastSpaceIndex) + '...';
   };
 
   changeSearch = (text) => {
@@ -84,54 +119,19 @@ class App extends React.Component {
   };
 
   render() {
-    let { loading, error, search } = this.state;
-    const elements = this.state.movies.map((el, i) => {
-      let raiting = el.vote_average.toFixed(1);
-      let raitingColor;
-      if (raiting <= 3) {
-        raitingColor = '#E90000';
-      } else if (raiting <= 5) {
-        raitingColor = '#E97E00';
-      } else if (raiting <= 7) {
-        raitingColor = '#E9D100';
-      } else {
-        raitingColor = '#66E900';
-      }
-      let release = new Date(el.release_date);
-      let releaseDate;
-      if (isValid(release)) {
-        releaseDate = format(release, 'MMMM d, yyyy');
-      } else {
-        releaseDate = 'Not found';
-      }
-      return (
-        <Col className="col" key={i}>
-          <img className="img" src={el.poster_path ? `https://image.tmdb.org/t/p/original${el.poster_path}` : ''} />
-          <div className="info">
-            <div>
-              <div style={{ borderColor: raitingColor }} className="realRate">
-                {raiting}
-              </div>
-              <p className="header">{this.getText(el.original_title, 10)}</p>
-              <p className="date">{releaseDate}</p>
-              <div>
-                <span className="genre">Action</span>
-                <span className="genre">Drama</span>
-              </div>
-              <p className="description">{this.getText(el.overview, 200)}</p>
-            </div>
-            <Rate
-              className="rate"
-              count={10}
-              onChange={(count) => {
-                this.movie.addRate(count, this.state.session);
-              }}
-            />
-          </div>
-        </Col>
-      );
-    });
-    let movieList = !loading && !error ? <ListRender elements={elements} /> : null;
+    let { loading, error, not_Found } = this.state;
+    let elementList = this.state.select === 'search' ? this.state.movies : this.state.ratedList;
+    let movieList =
+      !loading && !error ? (
+        <Provider value={this.state.genres}>
+          <ListRender
+            session={this.state.session}
+            genres={this.state.genres}
+            list={elementList}
+            ratedList={this.state.ratedList}
+          />
+        </Provider>
+      ) : null;
     let pagination =
       !loading && !error && this.state.movies.length > 0 ? (
         <Pagination
@@ -152,16 +152,50 @@ class App extends React.Component {
       />
     ) : null;
     let notFound =
-      this.state.movies.length === 0 && search && !error ? (
-        <Alert className="error" message="Ошибка" description="Фильм не найден" type="error" />
+      not_Found && !loading && !error ? (
+        <Alert className="error" message="Ошибка" description="Не найдено" type="error" />
       ) : null;
+    let searchPlace =
+      this.state.select === 'search' ? <SearchPlace changeSearch={(text) => this.changeSearch(text)} /> : null;
     return (
       <div className="main">
         <div className="head-buttons">
-          <button className="select">Search</button>
-          <button>Rated</button>
+          <button
+            className={this.state.select === 'search' ? 'select' : ' '}
+            onClick={async () => {
+              this.setState({
+                loading: true,
+              });
+              try {
+                const refreshRated = await this.movie.getRated(this.state.session, this.state.page);
+                this.setState({
+                  select: 'search',
+                  search: false,
+                  page: 1,
+                  ratedList: refreshRated.results,
+                  loading: false,
+                  not_Found: false,
+                });
+              } catch (e) {
+                this.setState({
+                  loading: false,
+                  error: true,
+                });
+              }
+            }}
+          >
+            Search
+          </button>
+          <button
+            className={this.state.select === 'rated' ? 'select' : ''}
+            onClick={() => {
+              this.getRated(this.state.session, this.state.page);
+            }}
+          >
+            Rated
+          </button>
         </div>
-        <SearchPlace changeSearch={(text) => this.changeSearch(text)} />
+        {searchPlace}
         {movieList}
         {loader}
         {errorDisplay}

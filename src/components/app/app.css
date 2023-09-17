@@ -15,8 +15,15 @@
 }
 
 .img {
-    background-color: black;
     width: 180px;
+}
+
+.img::after {
+    display: block;
+    content: "Изображение отсутствует";
+    font-size: 10px;
+    margin-top: 50%;
+    margin-left: 5px;
 }
 
 .info {
